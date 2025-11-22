@@ -30,8 +30,8 @@ async function run() {
     //=================api's================
     app.get("/parcels", async (req, res) => {
       const query = {};
-      const {email} = req.query
-      if (email){
+      const { email } = req.query;
+      if (email) {
         query.senderEmail = email;
       }
       const cursor = parcelCollection.find(query);
@@ -41,6 +41,7 @@ async function run() {
 
     app.post("/parcels", async (req, res) => {
       const parcel = req.body;
+      parcel.createTime = new Date();
       const result = await parcelCollection.insertOne(parcel);
       res.send(result);
     });
