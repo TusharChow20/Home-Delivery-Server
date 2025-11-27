@@ -8,9 +8,10 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 // middleware
 app.use(express.json());
 app.use(cors());
+const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.j7xeedk.mongodb.net/?appName=Cluster0`;
-
+const YOUR_DOMAIN = process.env.SITE_DOMAIN;
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -53,6 +54,34 @@ async function run() {
       parcel.createTime = new Date();
       const result = await parcelCollection.insertOne(parcel);
       res.send(result);
+    });
+
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      const amount = paymentInfo.deliveryCost * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+            price_data: {
+              currency: "USD",
+              product_data: {
+                name: paymentInfo.parcelName,
+              },
+              unit_amount: amount,
+            },
+            quantity: 1,
+          },
+        ],
+        customer_email: paymentInfo.senderEmail,
+        mode: "payment",
+        metadata: {
+          parcelId: paymentInfo.parcelId,
+        },
+        success_url: `${YOUR_DOMAIN}/dashboard/payment-success`,
+        cancel_url: `${YOUR_DOMAIN}/dashboard/payment-canceled`,
+      });
+      res.send({ url: session.url });
     });
 
     app.delete("/parcels/:id", async (req, res) => {
