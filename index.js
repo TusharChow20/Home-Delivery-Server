@@ -99,6 +99,12 @@ async function run() {
       const sessionId = req.query.session_id;
       const session = await stripe.checkout.sessions.retrieve(sessionId);
       const trackingId = generateTrackingId();
+      const transactionId = session.payment_intent;
+      const query = { transactionId: transactionId };
+      const paymentExits = await paymentCollection.findOne(query);
+      if (paymentExits) {
+        return;
+      }
       if (session.payment_status === "paid") {
         const id = session.metadata.parcelId;
         const query = { _id: new ObjectId(id) };
@@ -116,6 +122,7 @@ async function run() {
           transactionId: session.payment_intent,
           paymentStatus: session.payment_status,
           paidAt: new Date(),
+          trackingId: trackingId,
         };
         if (session.payment_status === "paid") {
           const resultPayment = await paymentCollection.insertOne(
@@ -145,6 +152,17 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/payments", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.customer_email = email;
+      }
+
+      const cursor = paymentCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
