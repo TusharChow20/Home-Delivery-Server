@@ -4,6 +4,8 @@ const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const crypto = require("crypto");
+
 // app.use(cors());
 // middleware
 app.use(express.json());
@@ -19,6 +21,12 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+function generateTrackingId() {
+  const timestamp = Date.now().toString(36); // base36 timestamp
+  const random = crypto.randomBytes(4).toString("hex");
+  return `TRK-${timestamp}-${random}`;
+}
 
 async function run() {
   try {
@@ -90,11 +98,12 @@ async function run() {
     app.patch("/payment-success", async (req, res) => {
       const sessionId = req.query.session_id;
       const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const trackingId = generateTrackingId();
       if (session.payment_status === "paid") {
         const id = session.metadata.parcelId;
         const query = { _id: new ObjectId(id) };
         const update = {
-          $set: { paymentStatus: "paid" },
+          $set: { paymentStatus: "paid", trackingId: trackingId },
         };
         await parcelCollection.updateOne(query, update);
 
@@ -115,6 +124,8 @@ async function run() {
           res.send({
             success: true,
             paymentInfo: resultPayment,
+            transactionId: session.payment_intent,
+            trackingId: trackingId,
           });
         }
         res.send({
