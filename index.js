@@ -52,6 +52,7 @@ async function run() {
     app.post("/parcels", async (req, res) => {
       const parcel = req.body;
       parcel.createTime = new Date();
+      parcel.paymentStatus = parcel.paymentStatus || "pending";
       const result = await parcelCollection.insertOne(parcel);
       res.send(result);
     });
@@ -78,10 +79,30 @@ async function run() {
         metadata: {
           parcelId: paymentInfo.parcelId,
         },
-        success_url: `${YOUR_DOMAIN}/dashboard/payment-success`,
+        success_url: `${YOUR_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${YOUR_DOMAIN}/dashboard/payment-canceled`,
       });
       res.send({ url: session.url });
+    });
+
+    app.patch("/payment-success", async (req, res) => {
+      const sessionId = req.query.session_id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session.payment_status === "paid") {
+        const id = session.metadata.parcelId;
+        const query = { _id: new ObjectId(id) };
+        const update = {
+          $set: { paymentStatus: "paid" },
+        };
+        await parcelCollection.updateOne(query, update);
+        res.send({
+          success: true,
+        });
+      }
+
+      res.send({
+        success: false,
+      });
     });
 
     app.delete("/parcels/:id", async (req, res) => {
