@@ -187,7 +187,7 @@ async function run() {
         }
       }
 
-      const cursor = paymentCollection.find(query);
+      const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
