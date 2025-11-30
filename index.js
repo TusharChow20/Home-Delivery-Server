@@ -6,10 +6,34 @@ const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const crypto = require("crypto");
 
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 // app.use(cors());
 // middleware
 app.use(express.json());
 app.use(cors());
+
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  try {
+    const tokenId = token.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(tokenId);
+    req.decoded_email = decoded.email;
+  } catch (err) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  next();
+};
+
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.j7xeedk.mongodb.net/?appName=Cluster0`;
@@ -152,11 +176,15 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
+
       if (email) {
         query.customer_email = email;
+        if (email !== req.decoded_email) {
+          return res.status(403).send({ message: "forbidden access" });
+        }
       }
 
       const cursor = paymentCollection.find(query);
