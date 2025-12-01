@@ -61,13 +61,37 @@ async function run() {
     const parcelCollection = myDB.collection("parcels");
     const paymentCollection = myDB.collection("payments");
     const userCollection = myDB.collection("users");
+    const ridersCollection = myDB.collection("riders");
 
     //users api's
     app.post("/users", async (req, res) => {
       const user = req.body;
       user.role = "user";
       user.createdAt = new Date();
+      const email = user.email;
+      const userExists = await userCollection.findOne({ email });
+      if (userExists) {
+        return res.send({ message: "user Exists" });
+      }
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    //riders api's
+    app.get("riders", async (req, res) => {
+      const query = {  };
+      if(req.query.status){
+        query.status = req.query.status
+      }
+      const cursor = ridersCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.post("/riders", async (req, res) => {
+      const rider = req.body;
+      rider.status = "pending";
+      rider.createdAt = new Date();
+      const result = await ridersCollection.insertOne(rider);
       res.send(result);
     });
 
