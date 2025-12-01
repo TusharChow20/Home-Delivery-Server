@@ -78,10 +78,10 @@ async function run() {
     });
 
     //riders api's
-    app.get("riders", async (req, res) => {
-      const query = {  };
-      if(req.query.status){
-        query.status = req.query.status
+    app.get("/riders", async (req, res) => {
+      const query = {};
+      if (req.query.status) {
+        query.status = req.query.status;
       }
       const cursor = ridersCollection.find(query);
       const result = await cursor.toArray();
@@ -92,6 +92,29 @@ async function run() {
       rider.status = "pending";
       rider.createdAt = new Date();
       const result = await ridersCollection.insertOne(rider);
+      res.send(result);
+    });
+
+    app.patch("/riders/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: status,
+        },
+      };
+      const result = await ridersCollection.updateOne(query, updatedDoc);
+      if (status === "approved") {
+        const email = req.body.email;
+        const userQuery = { email };
+        const updateUser = {
+          $set: {
+            role: "rider",
+          },
+        };
+        const userResult = await userCollection.updateOne(userQuery,updateUser);
+      }
       res.send(result);
     });
 
