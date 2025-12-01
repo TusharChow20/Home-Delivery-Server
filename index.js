@@ -60,6 +60,16 @@ async function run() {
     const myDB = client.db("siftingHobe");
     const parcelCollection = myDB.collection("parcels");
     const paymentCollection = myDB.collection("payments");
+    const userCollection = myDB.collection("users");
+
+    //users api's
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      user.role = "user";
+      user.createdAt = new Date();
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
 
     //=================api's================
     app.get("/parcels", async (req, res) => {
