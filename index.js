@@ -76,7 +76,25 @@ async function run() {
     //users api's
 
     app.get("/users", verifyToken, async (req, res) => {
-      const cursor = userCollection.find();
+      const searchPerson = req.query.searchPerson;
+      console.log(searchPerson);
+
+      let query = {};
+
+      if (searchPerson) {
+        query = {
+          $or: [
+            { name: { $regex: searchPerson, $options: "i" } },
+            { email: { $regex: searchPerson, $options: "i" } },
+          ],
+        };
+      }
+
+      const cursor = userCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(4);
+
       const result = await cursor.toArray();
       res.send(result);
     });
