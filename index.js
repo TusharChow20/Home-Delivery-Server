@@ -62,7 +62,17 @@ async function run() {
     const paymentCollection = myDB.collection("payments");
     const userCollection = myDB.collection("users");
     const ridersCollection = myDB.collection("riders");
+    //admin token
+    const verifyAdminToken = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden" });
+      }
 
+      next();
+    };
     //users api's
 
     app.get("/users", verifyToken, async (req, res) => {
@@ -80,6 +90,8 @@ async function run() {
     });
     app.post("/users", async (req, res) => {
       const user = req.body;
+      // console.log(user);
+
       user.role = "user";
       user.createdAt = new Date();
       const email = user.email;
@@ -91,18 +103,23 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      const roleInfo = req.body;
-      const query = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: roleInfo.role,
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/users/:id/role",
+      verifyToken,
+      verifyAdminToken,
+      async (req, res) => {
+        const id = req.params.id;
+        const roleInfo = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: roleInfo.role,
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedDoc);
+        res.send(result);
+      }
+    );
 
     //riders api's
     app.get("/riders", async (req, res) => {
